@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trip Itinerary Planner</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f9f9f9;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    form {
+      max-width: 500px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    button {
+      background: #007BFF;
+      color: white;
+      cursor: pointer;
+      border: none;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .results {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .results h2 {
+      margin-bottom: 15px;
+    }
+    #map {
+      height: 500px;
+      width: 100%;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+  </style>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXH0MfJ91YFE87BtRB_DSP6d3X-bcr7FQ&libraries=visualization"></script>
+</head>
+<body>
+  <h1>Trip Itinerary Planner</h1>
+
+  <form id="tripForm">
+    <label for="location">Enter a Destination</label>
+    <input type="text" id="location" placeholder="e.g., San Francisco, Paris, Tokyo" required>
+
+    <label for="duration">Number of Days</label>
+    <input type="number" id="duration" placeholder="e.g., 3" min="1" required>
+
+    <label for="attractionType">Preferred Attraction Type</label>
+    <select id="attractionType" required>
+      <option value="tourist_attraction">Tourist Attraction</option>
+      <option value="museum">Museum</option>
+      <option value="park">Park</option>
+    </select>
+
+    <label for="cuisineType">Preferred Cuisine</label>
+    <select id="cuisineType" required>
+      <option value="restaurant">Restaurant</option>
+      <option value="cafe">Cafe</option>
+      <option value="bar">Bar</option>
+    </select>
+
+    <button type="submit">Plan My Trip</button>
+  </form>
+
+  <div id="results" class="results" style="display: none;">
+    <h2>Itinerary</h2>
+    <div id="route"></div>
+    <div id="itinerary"></div>
+    <div id="map"></div>
+  </div>
+
+  <script>
+    let heatmap;
+
+    function plotHeatmap(itinerary) {
+      const heatmapData = [];
+
+      itinerary.forEach(day => {
+        // Add attractions to heatmap
+        day.attractions.forEach(attr => {
+          heatmapData.push({
+            location: new google.maps.LatLng(attr.geometry.location.lat, attr.geometry.location.lng),
+            weight: attr.rating || 1, // Use rating as weight for heatmap intensity
+          });
+        });
+
+        // Add restaurants to heatmap
+        day.restaurants.forEach(rest => {
+          heatmapData.push({
+            location: new google.maps.LatLng(rest.geometry.location.lat, rest.geometry.location.lng),
+            weight: rest.rating || 1,
+          });
+        });
+      });
+
+      // Clear previous heatmap if it exists
+      if (heatmap) heatmap.setMap(null);
+
+      // Create a new heatmap layer
+      heatmap = new google.maps.visualization.HeatmapLayer({
+        data: heatmapData,
+        radius: 30,
+        map: map,
+      });
+    }
+
+    let map, directionsService, directionsRenderer;
+
+    function initMap() {
+      directionsService = new google.maps.DirectionsService();
+      directionsRenderer = new google.maps.DirectionsRenderer();
+      map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 7,
+        center: { lat: 37.7749, lng: -122.4194 }, // Default to San Francisco
+      });
+      directionsRenderer.setMap(map);
+    }
+
+    document.getElementById('tripForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      // Collect input values
+      const location = document.getElementById('location').value;
+      const duration = document.getElementById('duration').value;
+      const attractionType = document.getElementById('attractionType').value;
+      const cuisineType = document.getElementById('cuisineType').value;
+
+      // Geocode the location to get lat/lng using Google Maps Geocoding API
+      const geocodeApi = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=AIzaSyBXH0MfJ91YFE87BtRB_DSP6d3X-bcr7FQ`;
+      const geocodeResponse = await fetch(geocodeApi);
+      const geocodeData = await geocodeResponse.json();
+
+      if (!geocodeData.results || geocodeData.results.length === 0) {
+        alert('Invalid location. Please try again.');
+        return;
+      }
+
+      const { lat, lng } = geocodeData.results[0].geometry.location;
+      const coordinates = `${lat},${lng}`;
+
+      // Send a POST request to the backend
+      const response = await fetch('http://localhost:3000/api/itinerary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start: coordinates,
+          duration: parseInt(duration),
+          preferences: {
+            attractions: attractionType,
+            cuisine: cuisineType,
+          },
+        }),
+      });
+
+      const result = await response.json();
+      displayResults(result, lat, lng);
+      plotHeatmap(result.itinerary);
+    });
+
+    function displayResults(data, startLat, startLng) {
+      const resultsDiv = document.getElementById('results');
+      const routeDiv = document.getElementById('route');
+      const itineraryDiv = document.getElementById('itinerary');
+
+      // Display route
+      routeDiv.innerHTML = '<h3>Optimized Route</h3>';
+      data.route.legs.forEach((leg, index) => {
+        routeDiv.innerHTML += `<p>Stop ${index + 1}: ${leg.end_address}</p>`;
+      });
+
+      // Display itinerary
+      itineraryDiv.innerHTML = '<h3>Daily Itinerary</h3>';
+      data.itinerary.forEach(day => {
+        itineraryDiv.innerHTML += `<h4>Day ${day.day}</h4><ul>`;
+        day.attractions.forEach(attr => {
+          itineraryDiv.innerHTML += `<li>Attraction: ${attr.name}</li>`;
+        });
+        day.restaurants.forEach(rest => {
+          itineraryDiv.innerHTML += `<li>Restaurant: ${rest.name}</li>`;
+        });
+        itineraryDiv.innerHTML += '</ul>';
+      });
+
+      // Show map and results
+      resultsDiv.style.display = 'block';
+
+      // Plot the route on Google Maps
+      const waypoints = data.route.legs.slice(1, -1).map(leg => ({
+        location: leg.end_location,
+        stopover: true,
+      }));
+      const request = {
+        origin: { lat: startLat, lng: startLng },
+        destination: { lat: startLat, lng: startLng },
+        waypoints: waypoints,
+        travelMode: 'DRIVING',
+      };
+
+      directionsService.route(request, (result, status) => {
+        if (status === 'OK') {
+          directionsRenderer.setDirections(result);
+
+          // Plot cuisine markers
+          plotCuisineMarkers(data.itinerary);
+        } else {
+          console.error('Directions request failed due to ' + status);
+        }
+      });
+    }
+
+    function plotCuisineMarkers(itinerary) {
+      itinerary.forEach(day => {
+        day.restaurants.forEach(rest => {
+          const marker = new google.maps.Marker({
+            position: {
+              lat: rest.geometry.location.lat,
+              lng: rest.geometry.location.lng,
+            },
+            map: map,
+            title: rest.name,
+            icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png', // Custom marker for restaurants
+          });
+
+          const infoWindow = new google.maps.InfoWindow({
+            content: `<h4>${rest.name}</h4><p>${rest.vicinity}</p>`,
+          });
+
+          marker.addListener('click', () => {
+            infoWindow.open(map, marker);
+          });
+        });
+      });
+    }
+
+    // Initialize the map
+    window.onload = initMap;
+  </script>
+</body>
+</html>
