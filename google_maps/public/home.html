@@ -6,62 +6,68 @@
   <title>Trip Itinerary Planner</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background-color: #f9f9f9;
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background-color: #121212; /* Dark background */
+        color: #ffffff; /* Light text color */
     }
     h1 {
-      text-align: center;
-      color: #333;
+        text-align: center;
+        color: #ffffff; /* White heading text */
     }
     form {
-      max-width: 500px;
-      margin: 20px auto;
-      padding: 20px;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        max-width: 500px;
+        margin: 20px auto;
+        padding: 20px;
+        background: #1e1e1e; /* Darker background for the form */
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5); /* Subtle shadow */
     }
     label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: bold;
+        display: block;
+        margin-bottom: 8px;
+        font-weight: bold;
+        color: #ffffff; /* White label text */
     }
     input, select, button {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 15px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 16px;
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #444; /* Dark border for inputs */
+        border-radius: 4px;
+        font-size: 16px;
+        background-color: #333; /* Dark input background */
+        color: #ffffff; /* White input text */
     }
     button {
-      background: #007BFF;
-      color: white;
-      cursor: pointer;
-      border: none;
+        background: #007BFF; /* Blue button */
+        color: #ffffff; /* White button text */
+        cursor: pointer;
+        border: none;
     }
     button:hover {
-      background: #0056b3;
+        background: #0056b3; /* Darker blue on hover */
     }
     .results {
-      max-width: 900px;
-      margin: 20px auto;
-      padding: 20px;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        max-width: 900px;
+        margin: 20px auto;
+        padding: 20px;
+        background: #1e1e1e; /* Darker background for results */
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5); /* Subtle shadow */
     }
     .results h2 {
-      margin-bottom: 15px;
+        margin-bottom: 15px;
+        color: #ffffff; /* White heading text */
     }
     #map {
-      height: 500px;
-      width: 100%;
-      border-radius: 8px;
-      margin-top: 20px;
+        height: 500px;
+        width: 100%;
+        border-radius: 8px;
+        margin-top: 20px;
     }
-  </style>
+</style>
+
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXH0MfJ91YFE87BtRB_DSP6d3X-bcr7FQ&libraries=visualization"></script>
 </head>
 <body>
@@ -187,79 +193,104 @@
     });
 
     function displayResults(data, startLat, startLng) {
-      const resultsDiv = document.getElementById('results');
-      const routeDiv = document.getElementById('route');
-      const itineraryDiv = document.getElementById('itinerary');
+  const resultsDiv = document.getElementById('results');
+  const routeDiv = document.getElementById('route');
+  const itineraryDiv = document.getElementById('itinerary');
 
-      // Display route
-      routeDiv.innerHTML = '<h3>Optimized Route</h3>';
-      data.route.legs.forEach((leg, index) => {
-        routeDiv.innerHTML += `<p>Stop ${index + 1}: ${leg.end_address}</p>`;
-      });
+  // Display route
+  routeDiv.innerHTML = '<h3>Optimized Route</h3>';
+  data.route.legs.forEach((leg, index) => {
+    routeDiv.innerHTML += `<p>Stop ${index + 1}: ${leg.end_address}</p>`;
+  });
 
-      // Display itinerary
-      itineraryDiv.innerHTML = '<h3>Daily Itinerary</h3>';
-      data.itinerary.forEach(day => {
-        itineraryDiv.innerHTML += `<h4>Day ${day.day}</h4><ul>`;
-        day.attractions.forEach(attr => {
-          itineraryDiv.innerHTML += `<li>Attraction: ${attr.name}</li>`;
-        });
-        day.restaurants.forEach(rest => {
-          itineraryDiv.innerHTML += `<li>Restaurant: ${rest.name}</li>`;
-        });
-        itineraryDiv.innerHTML += '</ul>';
-      });
+  // Display itinerary
+  itineraryDiv.innerHTML = '<h3>Daily Itinerary</h3>';
+  data.itinerary.forEach(day => {
+    itineraryDiv.innerHTML += `<h4>Day ${day.day}</h4><ul>`;
+    day.attractions.forEach(attr => {
+      itineraryDiv.innerHTML += `<li>Attraction: ${attr.name}</li>`;
+    });
+    day.restaurants.forEach(rest => {
+      itineraryDiv.innerHTML += `<li>Restaurant: ${rest.name}</li>`;
+    });
+    itineraryDiv.innerHTML += '</ul>';
+  });
 
-      // Show map and results
-      resultsDiv.style.display = 'block';
+  // Show results
+  resultsDiv.style.display = 'block';
 
-      // Plot the route on Google Maps
-      const waypoints = data.route.legs.slice(1, -1).map(leg => ({
-        location: leg.end_location,
-        stopover: true,
-      }));
-      const request = {
-        origin: { lat: startLat, lng: startLng },
-        destination: { lat: startLat, lng: startLng },
-        waypoints: waypoints,
-        travelMode: 'DRIVING',
-      };
+  // Plot the route on Google Maps
+  const waypoints = data.route.legs.slice(1, -1).map(leg => ({
+    location: leg.end_location,
+    stopover: true,
+  }));
+  const request = {
+    origin: { lat: startLat, lng: startLng },
+    destination: { lat: startLat, lng: startLng },
+    waypoints: waypoints,
+    travelMode: 'DRIVING',
+  };
 
-      directionsService.route(request, (result, status) => {
-        if (status === 'OK') {
-          directionsRenderer.setDirections(result);
+  directionsService.route(request, (result, status) => {
+    if (status === 'OK') {
+      directionsRenderer.setDirections(result);
 
-          // Plot cuisine markers
-          plotCuisineMarkers(data.itinerary);
-        } else {
-          console.error('Directions request failed due to ' + status);
-        }
-      });
+      // Plot attractions and restaurants on the map
+      plotAttractions(data.itinerary);
+      plotRestaurants(data.itinerary);
+    } else {
+      console.error('Directions request failed due to ' + status);
     }
+  });
+}
 
-    function plotCuisineMarkers(itinerary) {
-      itinerary.forEach(day => {
-        day.restaurants.forEach(rest => {
-          const marker = new google.maps.Marker({
-            position: {
-              lat: rest.geometry.location.lat,
-              lng: rest.geometry.location.lng,
-            },
-            map: map,
-            title: rest.name,
-            icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png', // Custom marker for restaurants
-          });
-
-          const infoWindow = new google.maps.InfoWindow({
-            content: `<h4>${rest.name}</h4><p>${rest.vicinity}</p>`,
-          });
-
-          marker.addListener('click', () => {
-            infoWindow.open(map, marker);
-          });
-        });
+function plotAttractions(itinerary) {
+  itinerary.forEach(day => {
+    day.attractions.forEach(attr => {
+      const marker = new google.maps.Marker({
+        position: {
+          lat: attr.geometry.location.lat,
+          lng: attr.geometry.location.lng,
+        },
+        map: map,
+        title: attr.name,
+        icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png', // Red marker for attractions
       });
-    }
+
+      const infoWindow = new google.maps.InfoWindow({
+        content: `<h4>${attr.name}</h4><p>${attr.vicinity}</p>`,
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(map, marker);
+      });
+    });
+  });
+}
+
+function plotRestaurants(itinerary) {
+  itinerary.forEach(day => {
+    day.restaurants.forEach(rest => {
+      const marker = new google.maps.Marker({
+        position: {
+          lat: rest.geometry.location.lat,
+          lng: rest.geometry.location.lng,
+        },
+        map: map,
+        title: rest.name,
+        icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png', // Blue marker for restaurants
+      });
+
+      const infoWindow = new google.maps.InfoWindow({
+        content: `<h4>${rest.name}</h4><p>${rest.vicinity}</p>`,
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(map, marker);
+      });
+    });
+  });
+}
 
     // Initialize the map
     window.onload = initMap;
