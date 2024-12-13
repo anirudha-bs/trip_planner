@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Weather App with Effects</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXH0MfJ91YFE87BtRB_DSP6d3X-bcr7FQ&libraries=places"></script>
+    <style>
+      #map {
+        height: 100vh;
+        width: 100%;
+      }
+      #search-box {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 5;
+        background: white;
+        padding: 10px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        font-size: 14px;
+        border-radius: 5px;
+        width: 300px;
+      }
+      .weather-effect {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: 100vw;
+        pointer-events: none;
+        z-index: 2;
+      }
+      .rain {
+        background: url('https://www.icegif.com/wp-content/uploads/2021/11/icegif-695.gif') repeat;
+        opacity: 0.4;
+      }
+      .cloudy {
+        background: url('https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExOGxrbGpzaTVsNWw3a2t6bHpnd2NtMjBmMGl1ejh1dmUxdzEwNWJ5YyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/yLrLQPkyz7dLYshVhO/giphy.gif') repeat;
+        opacity: 0.3;
+      }
+      .sunny {
+        background: radial-gradient(circle, rgba(255,223,0,0.8) 0%, rgba(255,255,255,0) 80%);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="search-box">
+      <input
+        id="location-input"
+        type="text"
+        placeholder="Search for a location"
+        style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px;"
+      />
+    </div>
+    <div id="map"></div>
+    <div id="weather-effect" class="weather-effect"></div>
+    <script>
+      let map, marker, infoWindow;
+
+      // Your OpenWeatherMap API Key
+      const OPENWEATHERMAP_API_KEY = "a8b6b1e5e79f652572455d5010be6b25";
+
+      function initMap() {
+        // Initialize map
+        map = new google.maps.Map(document.getElementById("map"), {
+          center: { lat: 34.0522, lng: -118.2437 }, // Default to Los Angeles
+          zoom: 10,
+        });
+
+        // Add an InfoWindow
+        infoWindow = new google.maps.InfoWindow();
+
+        // Add search box
+        const input = document.getElementById("location-input");
+        const searchBox = new google.maps.places.SearchBox(input);
+
+        // Bias the SearchBox results towards the current map's viewport
+        map.addListener("bounds_changed", () => {
+          searchBox.setBounds(map.getBounds());
+        });
+
+        // Handle search
+        searchBox.addListener("places_changed", () => {
+          const places = searchBox.getPlaces();
+          if (places.length === 0) return;
+
+          // Get the first place
+          const place = places[0];
+          if (!place.geometry || !place.geometry.location) return;
+
+          // Center map on searched location
+          map.setCenter(place.geometry.location);
+          map.setZoom(12);
+
+          // Place a marker and fetch weather
+          placeMarkerAndFetchWeather(place.geometry.location);
+        });
+
+        // Handle map clicks for dropping pins
+        map.addListener("click", (event) => {
+          placeMarkerAndFetchWeather(event.latLng);
+        });
+      }
+
+      // Place a marker and fetch weather data
+      function placeMarkerAndFetchWeather(location) {
+        // Place or move marker
+        if (!marker) {
+          marker = new google.maps.Marker({
+            position: location,
+            map: map,
+          });
+        } else {
+          marker.setPosition(location);
+        }
+
+        // Fetch weather data
+        fetchWeatherData(location.lat(), location.lng());
+      }
+
+      // Fetch weather data from OpenWeatherMap
+      async function fetchWeatherData(lat, lng) {
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&units=metric&appid=${OPENWEATHERMAP_API_KEY}`;
+        try {
+          const response = await fetch(url);
+          const data = await response.json();
+          displayWeatherInfo(lat, lng, data);
+          applyWeatherEffect(data.weather[0].main.toLowerCase());
+        } catch (error) {
+          console.error("Error fetching weather data:", error);
+        }
+      }
+
+      // Display weather information in InfoWindow
+      function displayWeatherInfo(lat, lng, weatherData) {
+        const content = `
+          <div>
+            <h4>Weather Info</h4>
+            <p><b>Location:</b> (${lat.toFixed(2)}, ${lng.toFixed(2)})</p>
+            <p><b>Temperature:</b> ${weatherData.main.temp} °C</p>
+            <p><b>Condition:</b> ${weatherData.weather[0].description}</p>
+            <p><b>Humidity:</b> ${weatherData.main.humidity} %</p>
+            <p><b>Wind Speed:</b> ${weatherData.wind.speed} m/s</p>
+          </div>
+        `;
+        infoWindow.setContent(content);
+        infoWindow.open(map, marker);
+      }
+
+      // Apply weather visual effects
+      function applyWeatherEffect(condition) {
+        const effect = document.getElementById("weather-effect");
+        effect.className = "weather-effect"; // Reset class
+
+        if (condition.includes("rain")) {
+          effect.classList.add("rain");
+        } else if (condition.includes("cloud")) {
+          effect.classList.add("cloudy");
+        } else {
+          effect.classList.add("sunny");
+        }
+      }
+
+      // Load the map
+      google.maps.event.addDomListener(window, "load", initMap);
+    </script>
+  </body>
+</html>

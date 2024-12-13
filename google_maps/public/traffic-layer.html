@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver's Perspective Navigation</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXH0MfJ91YFE87BtRB_DSP6d3X-bcr7FQ&libraries=places"></script>
+    <style>
+      /* Reset body margins and padding */
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        background-color: #1e1e1e;
+        color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      #controls {
+        display: flex;
+        flex-direction: column;
+        padding: 20px;
+        gap: 15px;
+        background: #2e2e2e;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+      }
+
+      label {
+        display: flex;
+        flex-direction: column;
+        font-size: 14px;
+        color: #bbbbbb;
+      }
+
+      input, select, button {
+        padding: 10px;
+        margin-top: 5px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: none;
+        background: #444;
+        color: white;
+        outline: none;
+      }
+
+      button {
+        background: #007bff;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background 0.3s;
+      }
+
+      button:hover {
+        background: #0056b3;
+      }
+
+      #map {
+        flex: 1;
+        height: calc(100vh - 190px);
+        width: 100%;
+      }
+
+      #eta {
+        padding: 15px;
+        font-size: 14px;
+        background: #2e2e2e;
+        color: white;
+        border-top: 1px solid #444;
+      }
+
+      .car-icon {
+        background-image: url("https://img.icons8.com/emoji/48/red-car.png");
+        background-size: cover;
+        height: 40px;
+        width: 40px;
+      }
+
+      /* Add responsive behavior */
+      @media (max-width: 768px) {
+        #controls {
+          padding: 10px;
+        }
+
+        label {
+          font-size: 12px;
+        }
+
+        input, select, button {
+          font-size: 12px;
+          padding: 8px;
+        }
+
+        button {
+          padding: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Controls Section -->
+    <div id="controls">
+      <label>
+        Origin:
+        <input id="origin" type="text" placeholder="Enter origin" />
+      </label>
+      <label>
+        Destination:
+        <input id="destination" type="text" placeholder="Enter destination" />
+      </label>
+      <label>
+        Travel Mode:
+        <select id="travel-mode">
+          <option value="DRIVING">Driving</option>
+          <option value="WALKING">Walking</option>
+          <option value="BICYCLING">Bicycling</option>
+          <option value="TRANSIT">Transit</option>
+        </select>
+      </label>
+      <button id="submit">Start Navigation</button>
+    </div>
+
+    <!-- Map Section -->
+    <div id="map"></div>
+
+    <!-- ETA Section -->
+    <div id="eta"></div>
+
+    <script>
+      let map, marker, routePath, step = 0, trafficLayer, directionsRenderer;
+
+      function initMap() {
+        // Initialize the map
+        map = new google.maps.Map(document.getElementById("map"), {
+          center: { lat: 34.0562, lng: -118.2365 }, // Default center
+          zoom: 18,
+          tilt: 60,
+          heading: 0,
+          mapTypeId: "roadmap",
+          styles: [
+            {
+              elementType: "geometry",
+              stylers: [
+                { color: "#212121" }
+              ]
+            },
+            {
+              elementType: "labels.icon",
+              stylers: [
+                { visibility: "off" }
+              ]
+            },
+            {
+              elementType: "labels.text.fill",
+              stylers: [
+                { color: "#757575" }
+              ]
+            },
+            {
+              elementType: "labels.text.stroke",
+              stylers: [
+                { color: "#212121" }
+              ]
+            },
+            {
+              featureType: "road",
+              elementType: "geometry",
+              stylers: [
+                { color: "#373737" }
+              ]
+            },
+            {
+              featureType: "road",
+              elementType: "geometry.fill",
+              stylers: [
+                { color: "#2c2c2c" }
+              ]
+            },
+            {
+              featureType: "road",
+              elementType: "geometry.stroke",
+              stylers: [
+                { color: "#212121" }
+              ]
+            }
+          ]
+        });
+
+        // Add Traffic Layer
+        trafficLayer = new google.maps.TrafficLayer();
+        trafficLayer.setMap(map);
+
+        // Refresh traffic layer every 5 seconds
+        setInterval(() => {
+          trafficLayer.setMap(null);
+          trafficLayer.setMap(map);
+        }, 5000);
+
+        // Initialize Directions Renderer
+        directionsRenderer = new google.maps.DirectionsRenderer({
+          map: map,
+          suppressMarkers: true, // We will add our own animated marker
+        });
+
+        // Initialize Places Autocomplete
+        const originInput = document.getElementById("origin");
+        const destinationInput = document.getElementById("destination");
+        new google.maps.places.Autocomplete(originInput);
+        new google.maps.places.Autocomplete(destinationInput);
+
+        // Set up event listener for the "Start Navigation" button
+        document.getElementById("submit").addEventListener("click", () => {
+          const origin = originInput.value;
+          const destination = destinationInput.value;
+          const travelMode = document.getElementById("travel-mode").value;
+
+          if (origin && destination) {
+            simulateTravel(origin, destination, travelMode);
+            calculateETA(origin, destination);
+          } else {
+            alert("Please enter both origin and destination.");
+          }
+        });
+      }
+
+      function simulateTravel(origin, destination, travelMode) {
+        const directionsService = new google.maps.DirectionsService();
+
+        directionsService.route(
+          {
+            origin: origin,
+            destination: destination,
+            travelMode: travelMode,
+          },
+          (result, status) => {
+            if (status === "OK") {
+              directionsRenderer.setDirections(result);
+              const route = result.routes[0].overview_path;
+              startDriverView(route);
+            } else {
+              console.error("Directions request failed due to " + status);
+              alert("Could not calculate route. Please try again.");
+            }
+          }
+        );
+      }
+
+      function calculateETA(origin, destination) {
+        const service = new google.maps.DistanceMatrixService();
+        service.getDistanceMatrix(
+          {
+            origins: [origin],
+            destinations: [destination],
+            travelMode: "DRIVING",
+          },
+          (response, status) => {
+            if (status === "OK") {
+              const driving = response.rows[0].elements[0];
+              const etaDiv = document.getElementById("eta");
+              etaDiv.innerHTML = `<b>ETA for Driving:</b> ${driving.duration.text} (${driving.distance.text})`;
+
+              ["WALKING", "BICYCLING", "TRANSIT"].forEach((mode) => {
+                service.getDistanceMatrix(
+                  {
+                    origins: [origin],
+                    destinations: [destination],
+                    travelMode: mode,
+                  },
+                  (resp, stat) => {
+                    if (stat === "OK") {
+                      const result = resp.rows[0].elements[0];
+                      etaDiv.innerHTML += `<br><b>ETA for ${mode}:</b> ${result.duration.text} (${result.distance.text})`;
+                    }
+                  }
+                );
+              });
+            } else {
+              console.error("Error fetching ETA: " + status);
+            }
+          }
+        );
+      }
+
+      function startDriverView(route) {
+        marker = new google.maps.Marker({
+          position: route[0],
+          map: map,
+          icon: {
+            url: "https://img.icons8.com/emoji/48/red-car.png",
+            scaledSize: new google.maps.Size(40, 40),
+          },
+        });
+
+        routePath = route;
+        step = 0;
+
+        function moveMarker() {
+          if (step < routePath.length - 1) {
+            step++;
+            marker.setPosition(routePath[step]);
+            map.setOptions({
+              center: routePath[step],
+              heading: calculateBearing(routePath[step - 1], routePath[step]),
+              tilt: 60,
+              zoom: 25,
+            });
+            setTimeout(moveMarker, 1500);
+          }
+        }
+
+        moveMarker();
+      }
+
+      function calculateBearing(start, end) {
+        const startLat = (start.lat() * Math.PI) / 180;
+        const startLng = (start.lng() * Math.PI) / 180;
+        const endLat = (end.lat() * Math.PI) / 180;
+        const endLng = (end.lng() * Math.PI) / 180;
+
+        const y = Math.sin(endLng - startLng) * Math.cos(endLat);
+        const x =
+          Math.cos(startLat) * Math.sin(endLat) -
+          Math.sin(startLat) * Math.cos(endLat) * Math.cos(endLng - startLng);
+
+        const bearing = (Math.atan2(y, x) * 180) / Math.PI;
+        return (bearing + 360) % 360;
+      }
+
+      google.maps.event.addDomListener(window, "load", initMap);
+    </script>
+  </body>
+</html>
